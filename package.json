@@ -1,0 +1,15 @@
+{
+  "name": "goscheck",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "next-app",
+    "worker"
+  ],
+  "scripts": {
+    "dev:app": "npm run dev --workspace=next-app",
+    "dev:worker": "npm run dev --workspace=worker",
+    "build": "npm run build --workspace=next-app",
+    "lint": "npm run lint --workspace=next-app"
+  }
+}
