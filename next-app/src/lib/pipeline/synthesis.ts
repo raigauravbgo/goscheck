@@ -42,7 +42,7 @@ export function aggregateDimensionScores(allPageScores: Pass1Scores[]): Record<s
   const result: Record<string, IDimensionAggregate> = {};
   for (const dim of Object.keys(DIMENSION_WEIGHTS)) {
     const scores = allPageScores
-      .map((p) => (p as Record<string, { score: number }>)[dim]?.score)
+      .map((p) => (p as unknown as Record<string, { score: number }>)[dim]?.score)
       .filter((s): s is number => typeof s === "number");
     const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
     result[dim] = { score: avg, weight: DIMENSION_WEIGHTS[dim] };
