@@ -14,12 +14,81 @@ import type { ISiteSummary } from "@/models/SiteSummary";
 import type { IFinding } from "@/models/Finding";
 
 type ScanDetail = {
-  scan: IScan & { _id: string };
+  scan: IScan & { _id: string; errorReason?: string | null; failedAtStage?: string | null };
   site: { _id: string; domain: string; name: string } | null;
   summary: (ISiteSummary & { _id: string }) | null;
   findings: (IFinding & { _id: string })[];
   pageResults: { _id: string; url: string }[];
 };
+
+function FailedScanPanel({
+  scan,
+  site,
+}: {
+  scan: IScan & { _id: string; errorReason?: string | null; failedAtStage?: string | null };
+  site: { domain: string } | null;
+}) {
+  const [resuming, setResuming] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+
+  const handleResume = async () => {
+    setResuming(true);
+    setResumeError(null);
+    try {
+      const res = await fetch(`/api/scans/${scan._id}/resume`, { method: "POST" });
+      const json = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) throw new Error(json.error ?? "Resume failed");
+      window.location.reload();
+    } catch (e) {
+      setResumeError((e as Error).message);
+      setResuming(false);
+    }
+  };
+
+  return (
+    <div className="card p-8 flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <span className="text-3xl">⚠️</span>
+        <div>
+          <h2 className="text-lg font-semibold" style={{ color: "var(--text)" }}>Scan failed</h2>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+            {site?.domain ?? "Site"} · {scan.pagesCrawled ?? 0} pages crawled before failure
+            {scan.failedAtStage ? ` · failed at stage: ${scan.failedAtStage}` : ""}
+          </p>
+        </div>
+      </div>
+
+      {scan.errorReason ? (
+        <div className="rounded-xl p-4" style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.25)" }}>
+          <p className="text-xs uppercase tracking-widest font-semibold mb-1" style={{ color: "var(--critical)" }}>Error</p>
+          <p className="text-sm whitespace-pre-wrap" style={{ color: "rgba(240,240,255,0.78)" }}>{scan.errorReason}</p>
+        </div>
+      ) : (
+        <p className="text-sm" style={{ color: "var(--text-dim)" }}>
+          No error message was recorded for this scan (it failed before the pipeline could capture one).
+        </p>
+      )}
+
+      {resumeError && (
+        <p className="text-sm" style={{ color: "var(--critical)" }}>{resumeError}</p>
+      )}
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleResume}
+          disabled={resuming}
+          className="text-sm px-5 py-2 rounded-xl font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ background: "var(--accent)", boxShadow: "0 0 12px var(--accent-glow)" }}
+        >
+          {resuming ? "Resuming…" : "Resume scan →"}
+        </button>
+        <p className="text-xs" style={{ color: "var(--text-dim)" }}>
+          Clears existing partial data for this scan and restarts the full pipeline from crawl.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function ScanDetailPage() {
   const params = useParams<{ scanId: string }>();
@@ -153,7 +222,9 @@ export default function ScanDetailPage() {
 
             {tab === "overview" && (
               <>
-                {(data.scan.status === "pending" || data.scan.status === "running") ? (
+                {data.scan.status === "failed" ? (
+                  <FailedScanPanel scan={data.scan} site={data.site} />
+                ) : (data.scan.status === "pending" || data.scan.status === "running") ? (
                   <div className="card p-6">
                     <ScanFeed
                       progressLog={data.scan.progressLog ?? []}

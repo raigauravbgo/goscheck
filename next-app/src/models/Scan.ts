@@ -28,6 +28,8 @@ export interface IScan extends Document {
   pass2CompletedAt?: Date;
   compareUrl?: string;
   comparisonScanId?: Types.ObjectId;
+  errorReason?: string;
+  failedAtStage?: string;
   createdAt: Date;
 }
 
@@ -68,6 +70,8 @@ const ScanSchema = new Schema<IScan>(
     pass2CompletedAt: { type: Date },
     compareUrl: { type: String },
     comparisonScanId: { type: Schema.Types.ObjectId, ref: "Scan" },
+    errorReason: { type: String },
+    failedAtStage: { type: String },
   },
   { timestamps: true }
 );

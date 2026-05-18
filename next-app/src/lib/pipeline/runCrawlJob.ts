@@ -46,8 +46,10 @@ export async function runCrawlJob(scanId: string, url: string): Promise<void> {
     status: "running",
     startedAt: new Date(),
     currentStage: "crawling",
+    $unset: { errorReason: "", failedAtStage: "" },
   });
 
+  let failedStage = "crawl";
   try {
     // ── Step 1: Crawl ──────────────────────────────────────────────────────
     const pages = await crawlSite(url, 200);
@@ -59,6 +61,7 @@ export async function runCrawlJob(scanId: string, url: string): Promise<void> {
     });
 
     console.log(`[pipeline] ${pages.length} pages — starting Pass 1`);
+    failedStage = "pass1";
 
     // ── Step 2: Pass 1 ────────────────────────────────────────────────────
     const allPass1Scores: Pass1Scores[] = [];
@@ -155,6 +158,14 @@ export async function runCrawlJob(scanId: string, url: string): Promise<void> {
     }
     await Scan.findByIdAndUpdate(scanId, { currentStage: "synthesizing" });
     console.log(`[pipeline] Running synthesis on ${allPass1Scores.length} pages`);
+    failedStage = "synthesis";
+
+    if (allPass1Scores.length === 0) {
+      throw new Error(
+        "Pass 1 scored 0 of " + pages.length + " pages — every per-page LLM call failed. " +
+        "Common causes: OPENAI_API_KEY missing or rate-limited, or LLM responses failing schema validation."
+      );
+    }
 
     // Build top findings context from lowest-scoring pages
     const topFindings: FindingSummary[] = allPass1Scores
@@ -197,7 +208,14 @@ export async function runCrawlJob(scanId: string, url: string): Promise<void> {
     // ── Step 5: Pass 2 (background, fire-and-forget) ──────────────────────
     void runPass2(scanId);
   } catch (err) {
-    await Scan.findByIdAndUpdate(scanId, { status: "failed", completedAt: new Date(), currentStage: "failed" });
-    console.error(`[pipeline] Scan ${scanId} failed:`, (err as Error).message);
+    const message = (err as Error).message ?? String(err);
+    await Scan.findByIdAndUpdate(scanId, {
+      status: "failed",
+      completedAt: new Date(),
+      currentStage: "failed",
+      errorReason: message.slice(0, 1000),
+      failedAtStage: failedStage,
+    });
+    console.error(`[pipeline] Scan ${scanId} failed at ${failedStage}:`, message);
   }
 }

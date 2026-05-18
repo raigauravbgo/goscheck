@@ -12,6 +12,8 @@ type ScanRow = {
   pagesCrawled: number;
   createdAt: string;
   completedAt?: string;
+  errorReason?: string | null;
+  failedAtStage?: string | null;
 };
 
 function scoreColor(score: number) {
@@ -134,7 +136,7 @@ export default function DashboardIndexPage() {
           <div className="flex flex-col gap-3">
             {scans.map((scan) => {
               const badge = statusBadge(scan.status);
-              const isClickable = scan.status === "complete" || scan.status === "running" || scan.status === "pending";
+              const isClickable = scan.status === "complete" || scan.status === "running" || scan.status === "pending" || scan.status === "failed";
 
               return (
                 <Link
@@ -169,7 +171,13 @@ export default function DashboardIndexPage() {
                         {scan.pagesCrawled > 0 ? `${scan.pagesCrawled} pages` : "—"}
                         {" · "}
                         {timeAgo(scan.createdAt)}
+                        {scan.status === "failed" && scan.failedAtStage ? ` · failed at ${scan.failedAtStage}` : ""}
                       </p>
+                      {scan.status === "failed" && scan.errorReason && (
+                        <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--critical)" }}>
+                          {scan.errorReason}
+                        </p>
+                      )}
                     </div>
                   </div>
 

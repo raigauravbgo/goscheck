@@ -85,7 +85,7 @@ export async function POST(req: Request) {
 export async function GET() {
   await connectDB();
 
-  const scans = await Scan.find({ status: { $ne: "failed" } })
+  const scans = await Scan.find({})
     .sort({ createdAt: -1 })
     .lean();
 
@@ -112,6 +112,8 @@ export async function GET() {
       pagesCrawled: s.pagesCrawled ?? 0,
       createdAt: s.createdAt,
       completedAt: s.completedAt ?? null,
+      errorReason: s.errorReason ?? null,
+      failedAtStage: s.failedAtStage ?? null,
     };
   });
 
