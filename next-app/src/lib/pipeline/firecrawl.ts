@@ -20,9 +20,36 @@ function getClient(): FirecrawlApp {
   return client;
 }
 
+// Common selectors for cookie-consent banners that otherwise leak into the
+// markdown and get audited as if they were page content. Anchored on
+// CookieYes (used by billgosling.com) plus the generic selectors most
+// consent platforms use.
+const COOKIE_BANNER_SELECTORS = [
+  "#cky-consent",
+  ".cky-consent-container",
+  ".cky-modal",
+  ".cky-overlay",
+  ".cky-preference-center",
+  ".cookieyes",
+  "[id^='cky-']",
+  "[class^='cky-']",
+  "[id*='cookie-banner']",
+  "[id*='cookie-consent']",
+  "[class*='cookie-banner']",
+  "[class*='cookie-consent']",
+  "[class*='consent-banner']",
+  "[aria-label*='cookie' i]",
+];
+
+const SCRAPE_DEFAULTS = {
+  onlyMainContent: true,
+  excludeTags: COOKIE_BANNER_SELECTORS,
+  removeBase64Images: true,
+};
+
 export async function scrapePage(url: string): Promise<CrawledPage> {
   const app = getClient();
-  const result = await app.scrapeUrl(url, { formats: ["markdown"] });
+  const result = await app.scrapeUrl(url, { formats: ["markdown"], ...SCRAPE_DEFAULTS });
   if (!result.success) throw new Error(`Firecrawl scrape failed for ${url}`);
   return {
     url,
@@ -41,6 +68,7 @@ export async function crawlSite(url: string, limit = 200): Promise<CrawledPage[]
     limit,
     scrapeOptions: {
       formats: ["markdown", "html"],
+      ...SCRAPE_DEFAULTS,
     },
   });
 
